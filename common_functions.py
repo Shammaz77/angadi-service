@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import jwt
 from flask import current_app, jsonify
 from traceback import format_exc
-from bson.objectid import ObjectId
+from bson import ObjectId
 
 
 def get_client_ip(request):
