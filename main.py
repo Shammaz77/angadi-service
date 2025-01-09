@@ -10,6 +10,7 @@ from db import dbconn
 app = Flask(__name__)
 
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'JWT-ijk@3)*123456789ijhkdkhdgsta&*()$>/k12309545%fFsop')
+app.config['JWT_EXP'] = os.environ.get('JWT_EXP', '432432432432')
 
 
 @app.route('/addLocations', methods=['POST'])
