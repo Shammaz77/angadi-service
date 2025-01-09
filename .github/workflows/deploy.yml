@@ -32,9 +32,8 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd /home/${{ secrets.EC2_USER }}
+          cd /home/${{ secrets.EC2_USER }}/angadi-service
           source venv/bin/activate
           pip install --upgrade pip
-          cd angadi-service
           pip install -r requirements.txt
           sudo systemctl restart flaskapp.service
