@@ -433,6 +433,10 @@ def seller_account_registration():
     except Exception:
         return
     
+@app.route('/health-check', methods=['GET'])
+def check_health():
+    return jsonify({'status': True}), 200
+    
 
 app.register_blueprint(seller_setup, url_prefix='/seller')
 
