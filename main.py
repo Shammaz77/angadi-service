@@ -6,11 +6,13 @@ from sellers import seller_setup
 import os
 from common_functions import get_client_ip, fn_convert_objects_to_string
 from db import dbconn
+from flask_cors import CORS
 
 app = Flask(__name__)
 
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'JWT-ijk@3)*123456789ijhkdkhdgsta&*()$>/k12309545%fFsop')
 
+CORS(app, supports_credentials=True)
 
 @app.route('/addLocations', methods=['POST'])
 def add_locations():
@@ -251,17 +253,25 @@ def create_shop_and_offers():
             'districtId': ObjectId(data['districtId']),
         }
 
-        if 'offerEndsIn' in data:
-            insert_obj['offerEndsIn'] = datetime.strptime(data['offerEndsIn'], "%Y-%m-%dT%H:%M:%S")
 
         if 'locationId' in data:
             insert_obj['locationId'] = ObjectId(data['locationId'])
 
         if 'offers' in data:
-            insert_obj['offers'] = data['offers']
+            insert_obj['offers'] = []
+            for offers in data['offers']:
+                offer_obj = {
+                    'poster': offers['image'],
+                    'offerEndsIn': datetime.strptime(data['offerEndsIn'], "%Y-%m-%dT%H:%M:%S"),
+                    'id': ObjectId()
+                }
+            insert_obj['offers'].append(offer_obj)
         
         if 'logo' in data:
             insert_obj['logo'] = data['logo']
+
+        if 'Thumbnail' in data:
+            insert_obj['Thumbnail'] = data['Thumbnail']
 
         dbconn.clnSellers.insert_one(insert_obj)
 
@@ -286,7 +296,7 @@ def delete_shop(shopId):
         return jsonify({'statusCode':500, 'message': 'Internal Server Error', 'error': str(error)})
     
 
-@app.route('/editShops/<string:shopId>', methods=['PATCH'])
+@app.route('/editShop/<string:shopId>', methods=['PATCH'])
 def edit_shop(shopId):
 
     try:
@@ -313,21 +323,65 @@ def edit_shop(shopId):
         if 'districtId' in data:
             update_obj['districtId'] = data['districtId']
 
-        if 'offerEndsIn' in data:
-            update_obj['offerEndsIn'] = datetime.strptime(data['offerEndsIn'], "%Y-%m-%dT%H:%M:%S")
-
         if 'locationId' in data:
             update_obj['locationId'] = ObjectId(data['locationId'])
 
         if 'offers' in data:
-            update_obj['offers'] = data['offers']
+            for offers in data['offers']:
+                if 'id' in offers:
+                    result = dbconn.clnSellers.update_one(
+                        {
+                            '_id': ObjectId(shopId),
+                            'offers.id': ObjectId(offers['id'])  # Match the existing offer in the array
+                        },
+                        {
+                            '$set': {
+                                'offers.$.poster': offers['poster'],
+                                'offers.$.offerEndsIn': datetime.strptime(offers['offerEndsIn'], "%Y-%m-%dT%H:%M:%S")
+                            }
+                        }
+                    )
+
+                    if result.matched_count == 0:
+                        # If no match, append the new offer
+                        dbconn.clnSellers.update_one(
+                            {'_id': ObjectId(shopId)},
+                            {
+                                '$push': {
+                                    'offers': {
+                                        'poster': offers['poster'],
+                                        'offerEndsIn': datetime.strptime(offers['offerEndsIn'], "%Y-%m-%dT%H:%M:%S"),
+                                        'id': ObjectId()  # Generate a new ObjectId for the offer
+                                    }
+                                }
+                            }
+                        )
+
+                else:
+                    # If no ID in the offer, treat it as a new offer
+                    dbconn.clnSellers.update_one(
+                        {'_id': ObjectId(shopId)},
+                        {
+                            '$push': {
+                                'offers': {
+                                    'poster': offers['poster'],
+                                    'offerEndsIn': datetime.strptime(offers['offerEndsIn'], "%Y-%m-%dT%H:%M:%S"),
+                                    'id': ObjectId()  # Generate a new ObjectId for the offer
+                                }
+                            }
+                        }
+                    )
+
 
         if 'logo' in data:
             update_obj['logo'] = data['logo']
 
+        if 'Thumbnail' in data:
+            update_obj['Thumbnail'] = data['Thumbnail']
+
         dbconn.clnSellers.update_one({'_id': ObjectId(shopId)}, {'$set': update_obj})
 
-        jsonify({'statusCode': 200, 'message': 'shop edited success'})
+        return jsonify({'statusCode': 200, 'message': 'shop edited success'})
 
     except Exception:
         error = format_exc()
