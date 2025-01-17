@@ -130,9 +130,6 @@ def create_categories():
             'activeFlag': 1
         }
 
-        if 'logo' in data:
-            insert_obj['logo'] = data['logo']
-
         dbconn.clnCategory.insert_one(insert_obj)
 
         return jsonify({'statusCode': 200, 'message': 'Category Inserted Succesfully'})
@@ -491,9 +488,17 @@ def seller_account_registration():
 def check_health():
     return jsonify({'status': True}), 200
 
-@app.route('/test_api', methods=['GET'])
-def test_api():
-    return jsonify({'status': True}), 200
+@app.route('/fetchCategories', methods=['GET'])
+def fetch_all_categories(): 
+
+    try:
+
+        category_list = list(dbconn.clnCategory.find({'activeFlag':1},{'activeFlag':0}))
+        return jsonify({'statusCode': 200, 'categories': fn_convert_objects_to_string(category_list)})
+    
+    except Exception:
+        error = format_exc()
+        return jsonify({'statusCode': 200, 'categories': fn_convert_objects_to_string(category_list), 'error': str(error)})
 
     
 
