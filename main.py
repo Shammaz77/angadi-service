@@ -24,72 +24,61 @@ def add_locations():
         if 'name' not in data:
             return jsonify({'statusCode': 400, 'message': 'Location Name not Found'})
         
-        insert_obj = {
-            'name': data['name'],
-            'type': data['type'],
-            'activeFlag': 1,
-            'createdDate': datetime.now()
-        }
-        
         if data['type'] == 'location':
 
-            insert_obj['stateId'] = ObjectId(data['stateId'])
-            insert_obj['countryId'] = ObjectId(data['countryId'])
-            insert_obj['districtId'] = ObjectId(data['districtId'])
+            dbconn.clnLocation.update_one({'_id': ObjectId(data['countryId']), "states._id": ObjectId(data['stateId']), 'states.districts._id': ObjectId(data['districtId'])}, {'$push': {'states.$[state].districts.$[district].locations': {
+                '_id': ObjectId(),
+                'name': data['name'],
+                'type': data['type'],
+                'activeFlag': 1,
+                'createdDate': datetime.now(),
+            }}},array_filters=[
+            {"state._id": ObjectId(data['stateId'])},
+            {"district._id": ObjectId(data['districtId'])}
+        ])   
 
         elif data['type'] == 'district':
 
-            insert_obj['stateId'] = ObjectId(data['stateId'])
-            insert_obj['countryId'] = ObjectId(data['countryId'])
+            dbconn.clnLocation.update_one({'_id': ObjectId(data['countryId']), "states._id": ObjectId(data['stateId'])}, {'$push': {'states.$.districts': {
+                '_id': ObjectId(),
+                'name': data['name'],
+                'type': data['type'],
+                'activeFlag': 1,
+                'createdDate': datetime.now(),
+                'locations': []
+            }}})    
 
         elif data['type'] == 'state':
 
-            insert_obj['countryId'] = ObjectId(data['countryId'])
+            dbconn.clnLocation.update_one({'_id': ObjectId(data['countryId'])}, {'$push': {'states':{
+                '_id': ObjectId(),
+                'name': data['name'],
+                'type': data['type'],
+                'activeFlag': 1,
+                'createdDate': datetime.now(),
+                'districts': []
+            }}})
 
-        dbconn.clnLocation.insert_one(insert_obj)
+        elif data['type'] == 'country':
+            dbconn.clnLocation.insert_one({
+                'name': data['name'],
+                'type': data['type'],
+                'activeFlag': 1,
+                'createdDate': datetime.now(),
+                'states': []
+            })
 
         return jsonify({'statusCode': 200, 'message': 'Location Inserted Succesfully'})
     
     except Exception:
         error = format_exc()
         return jsonify({'statusCode':500, 'message': 'Internal Server Error', 'error': str(error)})
-    
 
 @app.route('/getLocation', methods=['GET'])
 def get_locations():
 
     try:
-
-        data = request.args
-
-        query = {
-            'type': data['type'],
-            'activeFlag': 1
-        }
-
-        if data['type'] == 'location':
-
-            if 'districtId' not in data:
-                return jsonify({'statusCode': 400, 'message': 'districtId found'})
-            
-            query['districtId'] = ObjectId(data['districtId'])
-            query['stateId'] = ObjectId(data['stateId'])
-
-        elif data['type'] == 'district':
-
-            if 'stateId' not in data:
-                return jsonify({'statusCode': 400, 'message': 'StateId found'})
-            query['stateId'] = ObjectId(data['stateId'])
-            query['countryId'] = ObjectId(data['countryId'])
-
-        elif data['type'] == 'state':
-
-            if 'countryId' not in data:
-                return jsonify({'statusCode': 400, 'message': 'countryId found'})
-            
-            query['countryId'] = ObjectId(data['countryId'])
-
-        locations = list(dbconn.clnLocation.find(query, {'type':0,'createdDate':0,'activeFlag':0}))
+        locations = list(dbconn.clnLocation.find({'activeFlag':1},{'type':0,'createdDate':0,'activeFlag':0}))
 
         return jsonify({'statusCode': 200, 'message': 'Location Inserted Succesfully', 'locations': fn_convert_objects_to_string(locations)})
     
@@ -118,7 +107,7 @@ def create_categories():
         data = request.get_json()
 
         if 'categoryName' not in data:
-            return jsonify({'statusCode': 400, 'message': 'CategoryName found'})
+            return jsonify({'statusCode': 400, 'message': 'CategoryName Not found'})
         
         category = dbconn.clnCategory.find_one({'Name': data['categoryName']},{'_id':1})
         if category:
@@ -224,19 +213,19 @@ def create_shop_and_offers():
         data = request.get_json()
 
         if 'categoryId' not in data:
-            return jsonify({'statusCode': 400, 'message': 'categoryId found'})
+            return jsonify({'statusCode': 400, 'message': 'categoryId Not found'})
         
         if 'Name' not in data:
-            return jsonify({'statusCode': 400, 'message': 'Shop Name found'})
+            return jsonify({'statusCode': 400, 'message': 'Shop Name Not found'})
         
         if 'countryId' not in data:
-            return jsonify({'statusCode': 400, 'message': 'countryId found'})
+            return jsonify({'statusCode': 400, 'message': 'countryId Not found'})
         
         if 'stateId' not in data:
-            return jsonify({'statusCode': 400, 'message': 'stateId found'})
+            return jsonify({'statusCode': 400, 'message': 'stateId Not found'})
 
         if 'districtId' not in data:
-            return jsonify({'statusCode': 400, 'message': 'districtId found'})
+            return jsonify({'statusCode': 400, 'message': 'districtId Not found'})
 
         
         insert_obj = {
@@ -246,6 +235,10 @@ def create_shop_and_offers():
             'categoryName': data['categoryName'],
             'cratedDate': datetime.now(),
             'countryId': ObjectId(data['countryId']),
+            'countryName': data['countryName'],
+            'stateName': data['stateName'],
+            'districtName': data['districtName'],
+            'locationName': data['locationName'],
             'stateId': ObjectId(data['stateId']),
             'districtId': ObjectId(data['districtId']),
         }
@@ -413,7 +406,7 @@ def fetch_shops():
 
         sellers = list(dbconn.clnSellers.find(query,{'activeFlag':0,'offers':0}))
 
-        return jsonify({'statusCode': 200, 'message': 'Shop fetched Succesfully', 'sellers': fn_convert_objects_to_string(sellers)})
+        return jsonify({'statusCode': 200, 'message': 'Shop fetched Succesfully', 'shops': fn_convert_objects_to_string(sellers)})
     
     except Exception:
         error = format_exc()
